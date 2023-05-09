@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>Pac-Man</title>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+        <link type="text/css" rel="stylesheet" href="main.css">
+    </head>
+    <body>  
+        <div id="texto">Score: <span id="score">0</span></div>
+        <div id="textoWin"></div>
+
+
+        <script type="importmap">
+            {
+                "imports": {
+                    "three": "../build/three.module.js",
+                    "three/addons/": "./jsm/"
+                }
+            }
+        </script>
+
+        <script type="module">
+
+            import * as THREE from 'three';
+
+            import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+            
+            //renderer
+            const renderer = new THREE.WebGLRenderer( { antialias: true } );
+            renderer.setPixelRatio( window.devicePixelRatio );
+            renderer.setSize( window.innerWidth, window.innerHeight );
+            document.body.appendChild( renderer.domElement );
+
+            //escena
+            const sceneGame = new THREE.Scene();
+            sceneGame.background = new THREE.Color(0x000000);
+            var flagScene = true;
+
+            const sceneWin = new THREE.Scene();
+            sceneWin.background = new THREE.Color(0xffffff);
+
+            //camara y luces
+            const camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 1, 200 );
+            camera.position.set(0, 80, 65);
+            camera.lookAt(0, 0, 5);
+
+            const directionalLight = new THREE.DirectionalLight( 0xffffff, 0.5);
+            directionalLight.position.set(-65,80,65);
+            sceneGame.add( directionalLight );
+
+            const directionalLight2 = new THREE.DirectionalLight( 0xffffff, 0.5);
+            directionalLight2.position.set(0,80,65);
+            sceneGame.add( directionalLight2 );
+            
+            const directionalLight3 = new THREE.DirectionalLight( 0xffffff, 0.5);
+            directionalLight3.position.set(65,80,65);
+            sceneGame.add( directionalLight3 );
+            
+
+            //mapa del juego
+            const mapaTamano=78;
+            const mapFondo = new THREE.TextureLoader().load( 'textures/fondo.png' );
+            mapFondo.wrapS = mapFondo.wrapT = THREE.RepeatWrapping;
+            mapFondo.anisotropy = 16;
+            const materialFondo = new THREE.MeshPhongMaterial( { map: mapFondo, side: THREE.DoubleSide } );
+
+            var fondo = new THREE.Mesh( new THREE.PlaneGeometry( mapaTamano, mapaTamano ), materialFondo ); 
+            sceneGame.add( fondo );
+            fondo.rotation.x=Math.PI/2;
+            fondo.rotation.z=Math.PI;
+
+            const scaleMap=6.5;
+            const loader = new GLTFLoader();
+            loader.load( 'models/gltf/mapPacman.glb', function ( gltf ) {
+                const modelMap = gltf.scene;
+                modelMap.position.set( 0, -2, 0 );
+                modelMap.scale.set(scaleMap, scaleMap, scaleMap);
+                sceneGame.add( modelMap );
+            }, undefined, function ( e ) {
+                console.error( e );
+            } );
+
+            //fantasmas
+            const scaleGhost=40;
+            var modelInky;
+            var modelBlinky;
+            //Inky
+            loader.load( 'models/gltf/Inky.glb', function ( gltf ) {
+                modelInky = gltf.scene;
+                modelInky.position.set( -3, 2, -2 );
+                modelInky.scale.set(scaleGhost, scaleGhost, scaleGhost);
+                sceneGame.add( modelInky );
+            }, undefined, function ( e ) {
+                console.error( e );
+            } );
+            //Blinky
+            loader.load( 'models/gltf/Blinky.glb', function ( gltf ) {
+                modelBlinky = gltf.scene;
+                modelBlinky.position.set( 3, 2, -2 );
+                modelBlinky.scale.set(scaleGhost, scaleGhost, scaleGhost);
+                sceneGame.add( modelBlinky );
+            }, undefined, function ( e ) {
+                console.error( e );
+            } );
+
+            
+            //player
+            var playerPacman = new THREE.Group();
+            //frames para la animacion
+            var playerFrame1 = new THREE.Mesh( new THREE.CylinderGeometry( 2.4, 2.4, 2, 50, 1, false, Math.PI*(3/4), 2*Math.PI ), new THREE.MeshLambertMaterial( {color: 0xffff00} ) );
+            playerPacman.add(playerFrame1);
+            //
+            var playerFrame2 = new THREE.Mesh( new THREE.CylinderGeometry( 2.4, 2.4, 2, 50, 1, false, Math.PI*0.65, (7/4)*Math.PI ), new THREE.MeshLambertMaterial( {color: 0xffff00} ) );
+            playerPacman.add(playerFrame2);
+            //
+            var playerFrame3 = new THREE.Mesh( new THREE.CylinderGeometry( 2.4, 2.4, 2, 50, 1, false, Math.PI*(3/4), (3/2)*Math.PI ), new THREE.MeshLambertMaterial( {color: 0xffff00} ) );
+            playerPacman.add(playerFrame3);
+            //
+            var playerFrame4 = new THREE.Mesh( new THREE.CylinderGeometry( 2.4, 2.4, 2, 50, 1, false, Math.PI*0.65, (7/4)*Math.PI ), new THREE.MeshLambertMaterial( {color: 0xffff00} ) );
+            playerPacman.add(playerFrame4);
+            //
+            var playerFrame5 = new THREE.Mesh( new THREE.CylinderGeometry( 2.4, 2.4, 2, 50, 1, false, Math.PI*(3/4), 2*Math.PI ), new THREE.MeshLambertMaterial( {color: 0xffff00} ) );
+            playerPacman.add(playerFrame5);
+            //
+            playerPacman.position.set(0,0.5,20);
+            sceneGame.add(playerPacman);
+
+
+            //esferas de poder
+            const powerSpheres = new THREE.SphereGeometry( 1, 32, 16 );
+            const powerMaterial = new THREE.MeshLambertMaterial( { color: 0xffff00 } ); 
+            //esfera1
+            const powerSpheres1 = new THREE.Mesh( powerSpheres, powerMaterial );
+            powerSpheres1.position.set(-35,1,-30);
+            sceneGame.add( powerSpheres1 );
+            //esfera2
+            const powerSpheres2 = new THREE.Mesh( powerSpheres, powerMaterial );
+            powerSpheres2.position.set(35,1,-30);
+            sceneGame.add( powerSpheres2 );
+            //esfera3
+            const powerSpheres3 = new THREE.Mesh( powerSpheres, powerMaterial );
+            powerSpheres3.position.set(-35,1,20);
+            sceneGame.add( powerSpheres3 );
+            //esfera4
+            const powerSpheres4 = new THREE.Mesh( powerSpheres, powerMaterial );
+            powerSpheres4.position.set(35,1,20);
+            sceneGame.add( powerSpheres4 );
+
+            //analizador
+            var listener = new THREE.AudioListener();
+            camera.add(listener);
+            var audio = new THREE.Audio(listener);
+            var audioLoader = new THREE.AudioLoader();
+
+            var listenerGhost = new THREE.AudioListener();
+            camera.add(listenerGhost);
+            var audioGhost = new THREE.Audio(listenerGhost);
+            
+            //aleatorizar cancion
+            var url=''
+            var numAleatorio = getRandomInt(3);
+            if (numAleatorio==0){
+                url='sounds/pacmanTop10.ogg';
+            } else if (numAleatorio==1){
+                url='sounds/MainTheme.ogg';
+            } else if (numAleatorio==2){
+                url='sounds/moonlightSonata.ogg';
+            }
+
+            //reproducir cancion
+            audioLoader.load( url, function( buffer ) {
+                audio.setBuffer( buffer );
+                audio.play();
+            });
+
+            audioLoader.load( 'sounds/scareghost.ogg', function( buffer ) {
+                audioGhost.setBuffer( buffer );
+            });
+
+            audio.setLoop(true);
+	        audio.setVolume(0.2);
+            audioGhost.setVolume(0.2);
+            var analyser = new THREE.AudioAnalyser( audio, 1024 );
+
+            //puntos chikitos
+            const pointsMaterial = new THREE.MeshLambertMaterial( { color: 0xdc9e7f } );
+            const pointsGeometry = new THREE.SphereGeometry( 0.7, 32, 16 );
+
+            var points = []; // Crea el array vacío
+            createPoints();
+
+            var flags = [72];
+            for (var i = 0; i < 72; i++) {
+                flags[i]=true;        
+            }
+
+            //intento de movimiento xdd
+            var speed = 0.15; // Velocidad del movimiento
+            var direction = new THREE.Vector3(1, 0, 0); // Dirección del movimiento
+            var position = new THREE.Vector3(0,0.5,20); // Posición actual del player
+
+            document.addEventListener('keydown', function(event) {
+                switch (event.keyCode) {
+                    case 37: // Tecla izquierda
+                    playerPacman.rotation.y=Math.PI;
+                    direction.set(-1, 0, 0);
+                    break;
+                    case 38: // Tecla arriba
+                    playerPacman.rotation.y=(1/2)*  Math.PI;
+                    direction.set(0, 0, -1);
+                    break;
+                    case 39: // Tecla derecha
+                    playerPacman.rotation.y=Math.PI*2;
+                    direction.set(1, 0, 0);
+                    break;
+                    case 40: // Tecla abajo
+                    playerPacman.rotation.y=(3/2)*Math.PI;
+                    direction.set(0, 0, 1);
+                    break;
+                }
+            });
+
+            //delimitar barreras
+            var obstacleTopLeft = []; // Crea el array vacío
+            var obstacleBottomRight = []; // Crea el array vacío
+            for (var i = 0; i < 36; i++) {
+                var obstacleLeft = new THREE.Vector2(0, 0)
+                var obstacleRight = new THREE.Vector2(0, 0)
+                // Agrega cada vector al array correspondiente
+                obstacleTopLeft.push(obstacleLeft); 
+                obstacleBottomRight.push(obstacleRight);
+            }
+            setBarriers();
+
+            //inicializa un score global
+            var score = 0;
+            var scoreElement = document.getElementById("score");
+            var textoGanar = document.getElementById('textoWin');
+
+            //animar el jugador y la scene
+            animatePlayer();           
+            animate();
+            
+            /////////////////////////////////// FUNCIONES DEL CODIGO ///////////////////////////////////
+            function animate() {
+                requestAnimationFrame( animate );
+                scaleMusic();
+                animateGhosts();
+                movimientoPacman();
+                checkPoints();
+                checkWin();
+                render();
+            }   
+
+            function render() {
+                if(flagScene == true){
+                    renderer.render( sceneGame, camera );
+                } else{
+                    renderer.render( sceneWin, camera );
+                }
+            }
+
+            function animateGhosts(){
+                modelBlinky.position.z = -2+Math.sin(Date.now() * 0.003);
+                modelInky.position.z = -2-Math.sin(Date.now() * 0.003);
+            }
+
+            function animatePlayer() {
+                let visibleplayerFrame1 = true;
+                let visibleplayerFrame2 = false;
+                let visibleplayerFrame3 = false;
+                let visibleplayerFrame4 = false;
+                let visibleplayerFrame5 = false;
+                setInterval(() => {
+                if (visibleplayerFrame1 && !visibleplayerFrame2 && !visibleplayerFrame3 && !visibleplayerFrame4 && !visibleplayerFrame5) {
+                    playerFrame1.visible = false;
+                    playerFrame2.visible = true;
+                    visibleplayerFrame1 = false;
+                    visibleplayerFrame2 = true;
+                } else if (!visibleplayerFrame1 && visibleplayerFrame2 && !visibleplayerFrame3 && !visibleplayerFrame4 && !visibleplayerFrame5) {
+                    playerFrame2.visible = false;
+                    playerFrame3.visible = true;
+                    visibleplayerFrame2 = false;
+                    visibleplayerFrame3 = true;
+                } else if (!visibleplayerFrame1 && !visibleplayerFrame2 && visibleplayerFrame3 && !visibleplayerFrame4 && !visibleplayerFrame5) {
+                    playerFrame3.visible = false;
+                    playerFrame4.visible = true;
+                    visibleplayerFrame3 = false;
+                    visibleplayerFrame4 = true;
+                } else if (!visibleplayerFrame1 && !visibleplayerFrame2 && !visibleplayerFrame3 && visibleplayerFrame4 && !visibleplayerFrame5) {
+                    playerFrame4.visible = false;
+                    playerFrame5.visible = true;
+                    visibleplayerFrame4 = false;
+                    visibleplayerFrame5 = true;
+                } else if (!visibleplayerFrame1 && !visibleplayerFrame2 && !visibleplayerFrame3 && !visibleplayerFrame4 && visibleplayerFrame5) {
+                    playerFrame5.visible = false;
+                    playerFrame1.visible = true;
+                    visibleplayerFrame5 = false;
+                    visibleplayerFrame1 = true;
+                }
+                }, 60);
+            }         
+            
+            function getRandomInt(max) {
+                return Math.floor(Math.random() * max);
+            }
+
+            function scaleMusic(){
+                var data = analyser.getFrequencyData();
+                var value = data[0] / 100;
+                powerSpheres1.scale.set( value, value, value );
+                powerSpheres2.scale.set( value, value, value );
+                powerSpheres3.scale.set( value, value, value );
+                powerSpheres4.scale.set( value, value, value );
+            }
+
+            function movimientoPacman(){
+                var previousPosition = position.clone();
+                // Calculamos la nueva posición
+                position.add(direction.clone().multiplyScalar(speed));
+
+                // Limitamos la posición dentro del área de juego
+                if (position.x < -35) position.x = -35;
+                if (position.x > 35) position.x = 35;
+                if (position.z < -35) position.z = -35;
+                if (position.z > 35) position.z = 35;
+
+                // Verificamos si el jugador está dentro de las barreras
+                for (var i = 0; i < 36; i++){
+                    if (position.x >= obstacleTopLeft[i].x && position.x <= obstacleBottomRight[i].x &&
+                        position.z >= obstacleTopLeft[i].y && position.z <= obstacleBottomRight[i].y) {
+                        position.copy(previousPosition); // Revertimos el último movimiento
+                    }
+                }
+
+                // Actualizamos la posición
+                playerPacman.position.copy(position);
+            }
+
+            function createPoints(){
+                for (var i = 0; i < 68; i++) {
+                    var point = new THREE.Mesh( pointsGeometry, pointsMaterial );
+                    points.push(point); // Agrega cada figura al array
+                    sceneGame.add(point); // Agrega cada figura a la escena
+                }
+                //
+                points[0].position.set(5,1,20);
+                //
+                points[1].position.set(5,1,12);
+                //
+                points[2].position.set(12,1,12);
+                //
+                points[3].position.set(12,1,5);
+                //
+                points[4].position.set(12,1,-2);
+                //
+                points[5].position.set(21,1,-2);
+                //
+                points[6].position.set(21,1,12);
+                //
+                points[7].position.set(35,1,12);
+                //
+                points[8].position.set(35,1,20);
+                //
+                points[9].position.set(29.5,1,20);
+                //
+                points[10].position.set(29.5,1,27);
+                //
+                points[11].position.set(35,1,27);
+                //
+                points[12].position.set(35,1,34.5);
+                //
+                points[13].position.set(5,1,34.5);
+                //
+                points[14].position.set(5,1,27);
+                //
+                points[15].position.set(12,1,27);
+                //
+                points[16].position.set(12,1,20);
+                //
+                points[17].position.set(21,1,20);
+                //
+                points[18].position.set(21,1,27);
+                //
+                points[19].position.set(-4,1,34.5);
+                //
+                points[20].position.set(-35,1,34.5);
+                //
+                points[21].position.set(-35,1,27);
+                //
+                points[22].position.set(-29,1,27);
+                //
+                points[23].position.set(-21,1,27);
+                //
+                points[24].position.set(-21,1,20);
+                //
+                points[25].position.set(-12,1,20);
+                //
+                points[26].position.set(-4,1,20);
+                //
+                points[27].position.set(-4,1,12);
+                //
+                points[28].position.set(-12,1,12);
+                //
+                points[29].position.set(-12,1,5);
+                //
+                points[30].position.set(-12,1,-2);
+                //
+                points[31].position.set(-21,1,-2);
+                //
+                points[32].position.set(-21,1,12);
+                //
+                points[33].position.set(-35,1,12);
+                //
+                points[34].position.set(-35,1,20);
+                //
+                points[35].position.set(-29,1,20);
+                //
+                points[36].position.set(-12,1,27);
+                //
+                points[37].position.set(-4,1,27);
+                //
+                points[38].position.set(12,1,-9);
+                //
+                points[39].position.set(5,1,-9);
+                //
+                points[40].position.set(5,1,-17);
+                //
+                points[41].position.set(12,1,-17);
+                //
+                points[42].position.set(12,1,-24);
+                //
+                points[43].position.set(5,1,-24);
+                //
+                points[44].position.set(5,1,-34.5);
+                //
+                points[45].position.set(21,1,-34.5);
+                //
+                points[46].position.set(35,1,-34.5);
+                //
+                points[47].position.set(35,1,-24);
+                //
+                points[48].position.set(35,1,-17);
+                //
+                points[49].position.set(21,1,-17);
+                //
+                points[50].position.set(21,1,-24);
+                //
+                points[51].position.set(-4,1,-9);
+                //
+                points[52].position.set(-12,1,-9);
+                //
+                points[53].position.set(-4,1,-17);
+                //
+                points[54].position.set(-12,1,-17);
+                //
+                points[55].position.set(-12,1,-24);
+                //
+                points[56].position.set(-21,1,-24);
+                //
+                points[57].position.set(-21,1,-17);
+                //
+                points[58].position.set(-35,1,-17);
+                //
+                points[59].position.set(-35,1,-24);
+                //
+                points[60].position.set(-35,1,-34.5);
+                //
+                points[61].position.set(-21,1,-34.5);
+                //
+                points[62].position.set(-4,1,-34.5);
+                //
+                points[63].position.set(-4,1,-24);
+                // 
+                //
+                points[8].visible = false;
+                points[34].visible = false;
+                //
+                // puntos extra/no vertices
+                points[64].position.set(-14,1,34.5);
+                //
+                points[65].position.set(-24,1,34.5);
+                //
+                points[66].position.set(15,1,34.5);
+                //
+                points[67].position.set(25,1,34.5);
+            }
+
+            function setBarriers(){    
+                //forma l horizontal derecha
+                obstacleTopLeft[0].set(5, 12.6);
+                obstacleBottomRight[0].set(20.3, 19.7);
+
+                //forma T abajo de los fantasmas
+                obstacleTopLeft[1].set(-3.5, 5.5);
+                obstacleBottomRight[1].set(3.5, 19.6);
+
+                obstacleTopLeft[2].set(-12, 5.6);
+                obstacleBottomRight[2].set(12, 12.3);
+
+                //forma T abajo de la t abajo de los fantasmas xdd
+                obstacleTopLeft[3].set(-12, 20.56);
+                obstacleBottomRight[3].set(12, 27.3);
+
+                obstacleTopLeft[4].set(-3.5, 20.5);
+                obstacleBottomRight[4].set(3.5, 34.6);
+
+                //forma l horizontal izquierda
+                obstacleTopLeft[5].set(-20.3, 12.95);
+                obstacleBottomRight[5].set(-5.1, 19.7);
+
+                //forma l vertical derecha
+                obstacleTopLeft[6].set(13.3, -2);
+                obstacleBottomRight[6].set(20.3, 12.3);
+
+                //forma l vertical izquierda
+                obstacleTopLeft[7].set(-20.3, -2);
+                obstacleBottomRight[7].set(-13, 12.3);
+
+                //forma L derecha
+                obstacleTopLeft[8].set(21.7, 12.95);
+                obstacleBottomRight[8].set(28.5, 27.1);
+
+                obstacleTopLeft[9].set(24, 12.95);
+                obstacleBottomRight[9].set(34.1, 19.7);
+
+                //forma L izquierda
+                obstacleTopLeft[10].set(-28.5, 12.95);
+                obstacleBottomRight[10].set(-21.7, 27.1);
+
+                obstacleTopLeft[11].set(-34.1, 12.95);
+                obstacleBottomRight[11].set(-24, 19.7);
+
+                //cosito horizontal derecha
+                obstacleTopLeft[12].set(30, 20.5);
+                obstacleBottomRight[12].set(38, 27.1);
+
+                //cosito horizontal izquierda
+                obstacleTopLeft[13].set(-38, 20.5);
+                obstacleBottomRight[13].set(-30, 27.1);
+
+                //forma T alrevés de abajo a la derecha
+                obstacleTopLeft[14].set(13.3, 20.7);
+                obstacleBottomRight[14].set(20.2, 34.5);
+
+                obstacleTopLeft[15].set(5, 28);
+                obstacleBottomRight[15].set(34, 34.5);
+
+                //forma T alrevés de abajo a la izquierda
+                obstacleTopLeft[16].set(-20.2, 20.7);
+                obstacleBottomRight[16].set(-13.3, 34.5);
+
+                obstacleTopLeft[17].set(-34, 28);
+                obstacleBottomRight[17].set(-5, 34.5);
+
+                //forma cuadrado borde mapa abajo derecha
+                obstacleTopLeft[18].set(21.7, -2);
+                obstacleBottomRight[18].set(38, 12.3);
+
+                //forma cuadrado borde mapa abajo izquierda
+                obstacleTopLeft[19].set(-38, -2);
+                obstacleBottomRight[19].set(-21.7, 12.3);
+
+                //forma cuadrado borde mapa arriba derecha
+                obstacleTopLeft[20].set(21.7, -16.95);
+                obstacleBottomRight[20].set(38, -2.7);
+
+                //forma cuadrado borde mapa arriba izquierda
+                obstacleTopLeft[21].set(-38, -16.95);
+                obstacleBottomRight[21].set(-21.7, -2.7);
+
+                //forma T arriba de los fantasmuquis
+                obstacleTopLeft[22].set(-3.5, -24.3);
+                obstacleBottomRight[22].set(3.5, -10.4);
+
+                obstacleTopLeft[23].set(-12, -24.3);
+                obstacleBottomRight[23].set(12, -17.7);
+
+                //forma T arriba a la derecha
+                obstacleTopLeft[24].set(13.3, -24.3);
+                obstacleBottomRight[24].set(20.3, -2.8);
+
+                obstacleTopLeft[25].set(5.1, -17);
+                obstacleBottomRight[25].set(18, -10.4);
+
+                //forma T arriba a la izquierda
+                obstacleTopLeft[26].set(-20.3, -24.3);
+                obstacleBottomRight[26].set(-13.3, -2.8);
+
+                obstacleTopLeft[27].set(-18, -17);
+                obstacleBottomRight[27].set(-5.1, -10.4);
+
+                //forma - chikita arriba derecha
+                obstacleTopLeft[28].set(21.7, -24.3);
+                obstacleBottomRight[28].set(34.1, -17.65);
+
+                //forma - chikita arriba izquierda
+                obstacleTopLeft[29].set(-34.1, -24.3);
+                obstacleBottomRight[29].set(-21.7, -17.65);
+
+                //forma cuadrado full esquinado arriba derecha
+                obstacleTopLeft[30].set(21.7, -34.3);
+                obstacleBottomRight[30].set(34.1, -25.15);
+
+                //forma cuadrado full esquinado arriba izquierda
+                obstacleTopLeft[31].set(-34.1, -34.3);
+                obstacleBottomRight[31].set(-21.7, -25.15);
+
+                //forma cuadrado centro arriba derecha
+                obstacleTopLeft[32].set(5.1, -34.3);
+                obstacleBottomRight[32].set(20.3, -25.15);
+
+                //forma cuadrado centro arriba izquierda
+                obstacleTopLeft[33].set(-20.3, -34.3);
+                obstacleBottomRight[33].set(-5.1, -25.15);
+
+                //forma l borde mapa arribota
+                obstacleTopLeft[34].set(-3.5, -38);
+                obstacleBottomRight[34].set(3.5, -25.15);
+
+                //forma cuadrado centro, onde estan los fantasmas
+                obstacleTopLeft[35].set(-12, -9.3);
+                obstacleBottomRight[35].set(12, 4.7);
+            }
+
+            function checkPoints(){                
+                for (var i = 0; i < 68; i++) {
+                    if (position.distanceTo(points[i].position) <= 2 && flags[i]==true) {
+                        points[i].visible=false;
+                        flags[i]=false;
+                        score+=50;
+                        scoreElement.textContent = score;
+                    }
+                }
+                if (position.distanceTo(powerSpheres1.position) <= 2 && flags[68]==true) {
+                    powerSpheres1.visible=false;
+                    flags[68]=false;
+                    score+=100;
+                    soundScareghosts(); 
+                }
+                if (position.distanceTo(powerSpheres2.position) <= 2 && flags[69]==true) {
+                    powerSpheres2.visible=false;
+                    flags[69]=false;
+                    score+=100;
+                    soundScareghosts();
+                }
+                if (position.distanceTo(powerSpheres3.position) <= 2 && flags[70]==true) {
+                    powerSpheres3.visible=false;
+                    flags[70]=false;
+                    score+=100;
+                    soundScareghosts();
+                }
+                if (position.distanceTo(powerSpheres4.position) <= 2 && flags[71]==true) {
+                    powerSpheres4.visible=false;
+                    flags[71]=false;
+                    score+=100;
+                    soundScareghosts();
+                }   
+            }
+
+            function soundScareghosts(){
+                audioGhost.play(); // Inicia la reproduccion de un .ogg
+                    // Dura 5 segundos
+                setTimeout(function() {
+                    audioGhost.stop(); // Detiene la reproduccion de un .ogg
+                }, 5000);
+            }
+
+            function checkWin(){
+                if (score == 3800){
+                    flagScene = false;
+                    textoGanar.textContent = "¡ FELICIDADES, GANASTE !";
+                }
+            }
+        </script>
+    </body>
+</html>
