@@ -1,2 +1,2 @@
 # pacmanthreejs
-Ola papus
+Pequeña recreación del juego pacman hecha usando Threejs
